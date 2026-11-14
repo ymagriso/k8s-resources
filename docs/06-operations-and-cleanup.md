@@ -196,7 +196,7 @@ To stretch your $300 GCP Free Trial, the cluster VMs are automatically stopped o
 
 ### Nightly Auto-Shutdown & On-Demand Workflow
 
-1. **Nightly Shutdown & Manual Toggle ([`.github/workflows/stop-rke2-vms.yml`](../.github/workflows/stop-rke2-vms.yml)):**
+1. **Nightly Shutdown & Manual Toggle ([`.github/workflows/manage-rke2-vms.yml`](../.github/workflows/manage-rke2-vms.yml)):**
    * Runs every hour from **`23:00` to `06:00` (`Asia/Jerusalem`)** and stops any `RUNNING` `rke2-node-*` VMs automatically.
    * Can also be triggered manually from **Actions → RKE2 VMs Power Management → Run workflow** with `action: stop` or `action: start`.
 2. **Auto-Start on Merge to `main` ([`.github/workflows/tofu-apply.yml`](../.github/workflows/tofu-apply.yml)):**
