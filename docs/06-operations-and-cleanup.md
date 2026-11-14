@@ -52,6 +52,7 @@ To protect the GitOps cluster against supply-chain compromises and unstable "Day
 * **7-Day Major Release Cooldown (`matchUpdateTypes: ["major"]`):** Major version upgrades require a 7-day cooldown window to allow early upstream hotfixes (`.1` / `.2`) to settle.
 * **One Minor Version at a Time for Kubernetes (`separateMultipleMinor: true`):** Kubernetes only supports sequential minor version upgrades ($1.35 \rightarrow 1.36 \rightarrow 1.37$). Renovate is configured with `separateMultipleMinor: true` for `rancher/rke2` to ensure a dedicated PR is opened per minor series rather than skipping minor releases.
 * **Pinned Major Series for MongoDB (`registry-1.docker.io/bitnamicharts/mongodb`):** Major chart updates (`17.x+`, which target MongoDB `8.2`/`9.0` and `:latest` tags) are disabled (`enabled: false`) so the chart remains aligned with the pinned MongoDB `8.0.13` (`16.x`) release.
+* **Excluded Private Registry Placeholder (`registry.yourdomain.com/**`):** Because `registry.yourdomain.com` is a template placeholder substituted at deploy time from the `CUSTOM_DOMAIN` GitHub Secret (and points to the password-protected internal registry), lookups under `registry.yourdomain.com/**` are disabled (`enabled: false`) in `renovate.json`.
 * **PR Rate Limits (`prHourlyLimit: 2`, `prConcurrentLimit: 5`):** Prevents PR spam while automatically tagging PRs with `rke2`, `opentofu`, `helm`, `docker`, and `dependencies` labels.
 
 ---
