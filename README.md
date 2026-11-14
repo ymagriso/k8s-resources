@@ -61,7 +61,7 @@ k8s-resources/
 │   └── workflows/
 │       ├── tofu-apply.yml                              # OpenTofu plan/apply (GCP + Cloudflare Tunnel), VM auto-start & cluster bootstrap
 │       ├── tofu-destroy.yml                            # OpenTofu safe teardown (requires "DESTROY" input)
-│       ├── stop-rke2-vms.yml                           # Scheduled nightly VM stop (23:00–06:00 Asia/Jerusalem) & on-demand start/stop
+│       ├── manage-rke2-vms.yml                         # Scheduled nightly VM stop (23:00–06:00 Asia/Jerusalem) & on-demand start/stop
 │       └── trivy-scan.yml                              # Trivy container image (Manifests, Kustomize, Helm, Private Registry) & IaC scan
 ├── tofu/                                               # Declarative GCP Infrastructure as Code
 │   ├── versions.tf                                     # OpenTofu & Google/Random provider constraints
