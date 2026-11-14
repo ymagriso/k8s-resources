@@ -99,6 +99,13 @@
       "enabled": false
     },
     {
+      "description": "Ignore private registry placeholder domain (registry.yourdomain.com is substituted at deploy time from GitHub Secrets)",
+      "matchPackageNames": [
+        "registry.yourdomain.com/**"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Longer 7-day cooldown for major version upgrades",
       "matchUpdateTypes": [
         "major"
