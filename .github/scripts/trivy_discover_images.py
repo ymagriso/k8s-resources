@@ -17,15 +17,14 @@ KUSTOMIZE_NAMES = {"kustomization.yaml", "kustomization.yml", "Kustomization"}
 
 def check_private_registry(
     domain: str, reg_user: str, reg_pass: str
-) -> tuple[bool, str, str, str]:
+) -> tuple[bool, str, str]:
     """Check connectivity to the private Docker registry and log in with docker/helm if online."""
     private_registry_status = "Not configured (CUSTOM_DOMAIN secret unset)"
     private_registry_reachable = False
     reg_host = f"registry.{domain}" if domain else ""
-    basic_token = ""
 
     if not domain:
-        return private_registry_reachable, private_registry_status, reg_host, basic_token
+        return private_registry_reachable, private_registry_status, reg_host
 
     ping_url = f"https://{reg_host}/v2/"
     req = urllib.request.Request(
@@ -69,7 +68,7 @@ def check_private_registry(
                 check=False,
             )
 
-    return private_registry_reachable, private_registry_status, reg_host, basic_token
+    return private_registry_reachable, private_registry_status, reg_host
 
 
 def is_offline_private_ref(
@@ -192,7 +191,6 @@ def discover_images(
         private_registry_reachable,
         private_registry_status,
         reg_host,
-        basic_token,
     ) = check_private_registry(domain, reg_user, reg_pass)
 
     images: dict[str, set[str]] = {}
@@ -421,33 +419,6 @@ def discover_images(
         ]
         if other_docs:
             extract_images_from_docs(other_docs, fpath, add_image)
-
-    # 6. Query /v2/_catalog for any other container images in Private Docker Registry when online
-    if private_registry_reachable and reg_host:
-        try:
-            cat_req = urllib.request.Request(
-                f"https://{reg_host}/v2/_catalog",
-                headers={"User-Agent": "Docker-Client/27.0.0 (linux)"},
-            )
-            if basic_token:
-                cat_req.add_header("Authorization", f"Basic {basic_token}")
-            with urllib.request.urlopen(cat_req, timeout=10) as resp:
-                repos = json.loads(resp.read().decode()).get("repositories") or []
-            for repo in repos:
-                if repo.startswith("charts/"):
-                    continue
-                tags_req = urllib.request.Request(
-                    f"https://{reg_host}/v2/{repo}/tags/list",
-                    headers={"User-Agent": "Docker-Client/27.0.0 (linux)"},
-                )
-                if basic_token:
-                    tags_req.add_header("Authorization", f"Basic {basic_token}")
-                with urllib.request.urlopen(tags_req, timeout=10) as tresp:
-                    tags = json.loads(tresp.read().decode()).get("tags") or []
-                for tag in tags:
-                    add_image(f"{reg_host}/{repo}:{tag}", f"private-registry:{reg_host}")
-        except Exception as exc:
-            print(f"Warning: catalog lookup on {reg_host} failed: {exc}", flush=True)
 
     image_list = [
         {"image": img, "sources": sorted(srcs)} for img, srcs in sorted(images.items())
