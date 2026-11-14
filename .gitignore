@@ -16,3 +16,7 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+
+# Python ignores
+__pycache__/
+*.py[cod]

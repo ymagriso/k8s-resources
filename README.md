@@ -58,6 +58,17 @@ k8s-resources/
 ├── README.md                                           # Overview, architecture & documentation index
 ├── renovate.json                                       # Mend Renovate configuration (Helm, K8s, Docker & OpenTofu rules)
 ├── .github/
+│   ├── scripts/
+│   │   ├── bootstrap-cluster.sh                        # RKE2 control-plane, GlusterFS, secrets, Helm & Argo CD bootstrap
+│   │   ├── detect_changed_stacks.py                    # Detects changed OpenTofu stacks (GCP / Cloudflare)
+│   │   ├── guard-node-replacement.sh                   # Blocks accidental RKE2 node VM deletion/replacement in OpenTofu plans
+│   │   ├── import-cloudflare-resources.sh              # Imports existing Cloudflare Tunnel config & DNS CNAMEs into state
+│   │   ├── manage-rke2-vms.sh                          # Starts or stops RKE2 cluster VMs in GCP
+│   │   ├── resolve_cloudflare_credentials.py           # Decodes & validates Cloudflare credentials and tunnel token
+│   │   ├── trivy_config_scan.py                        # Runs Trivy IaC/K8s config scan & writes Markdown summary
+│   │   ├── trivy_discover_images.py                    # Discovers container images across manifests, Kustomize, Helm & registry
+│   │   ├── trivy_image_scan.py                         # Scans discovered container images with Trivy & summarizes CVEs
+│   │   └── verify-cloudflare-token.sh                  # Verifies Cloudflare API token, Zone & Tunnel permissions
 │   └── workflows/
 │       ├── tofu-apply.yml                              # OpenTofu plan/apply (GCP + Cloudflare Tunnel), VM auto-start & cluster bootstrap
 │       ├── tofu-destroy.yml                            # OpenTofu safe teardown (requires "DESTROY" input)
