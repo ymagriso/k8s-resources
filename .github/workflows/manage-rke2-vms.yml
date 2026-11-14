@@ -1,0 +1,53 @@
+name: "RKE2 VMs Power Management"
+
+on:
+  schedule:
+    - cron: "0 23,0-6 * * *"
+      timezone: "Asia/Jerusalem"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Power action to perform on RKE2 VMs"
+        required: true
+        default: "stop"
+        type: choice
+        options:
+          - stop
+          - start
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: opentofu-infra
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  power:
+    name: "Manage RKE2 VMs Power State"
+    runs-on: ubuntu-latest
+    env:
+      ACTION: ${{ github.event.inputs.action || 'stop' }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7.0.1
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CI_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3.0.1
+
+      - name: Stop Running RKE2 VMs
+        if: env.ACTION == 'stop'
+        run: .github/scripts/manage-rke2-vms.sh stop
+
+      - name: Start Stopped RKE2 VMs
+        if: env.ACTION == 'start'
+        run: .github/scripts/manage-rke2-vms.sh start
