@@ -190,8 +190,8 @@ data:
           "title": "Resident Memory by Replica (MiB)",
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "targets": [{ "expr": "mongodb_ss_mem{job=\"mongodb\",mem_type=\"resident\"}", "legendFormat": "{{instance}}", "refId": "A" }],
-          "fieldConfig": { "defaults": { "unit": "decmbytes" } }
+          "targets": [{ "expr": "mongodb_ss_mem_resident{job=\"mongodb\"}", "legendFormat": "{{instance}}", "refId": "A" }],
+          "fieldConfig": { "defaults": { "unit": "mbytes" } }
         },
         {
           "id": 7,
