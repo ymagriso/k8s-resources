@@ -51,6 +51,10 @@ spec:
               value: "false"
             - name: GF_ANALYTICS_CHECK_FOR_UPDATES
               value: "false"
+          envFrom:
+            - secretRef:
+                name: grafana-google-oidc
+                optional: true
           ports:
             - name: http
               containerPort: 3000

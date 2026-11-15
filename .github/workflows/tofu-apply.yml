@@ -160,6 +160,8 @@ jobs:
           DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
           GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER || 'admin' }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          GRAFANA_GOOGLE_OIDC_CLIENT_ID: ${{ secrets.GRAFANA_GOOGLE_OIDC_CLIENT_ID }}
+          GRAFANA_GOOGLE_OIDC_CLIENT_SECRET: ${{ secrets.GRAFANA_GOOGLE_OIDC_CLIENT_SECRET }}
         run: .github/scripts/bootstrap-cluster.sh
 
       - name: Resolve Cloudflare Credentials & Domain

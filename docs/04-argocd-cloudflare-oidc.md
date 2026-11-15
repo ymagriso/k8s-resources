@@ -114,6 +114,7 @@ You can now access the Argo CD UI directly in your browser at `https://argocd.<y
      * **Application type:** `Web application`
      * **Authorized redirect URIs:**
        * `https://argocd.<your-domain>/auth/callback`
+       * `https://grafana.<your-domain>/login/google` *(if reusing this OAuth client for Grafana)*
        * `http://localhost:8085/auth/callback` *(optional, for `argocd login --sso` CLI)*
 2. **Store the OAuth Client ID and Secret in Kubernetes** (labeled with `app.kubernetes.io/part-of=argocd` so Argo CD can read `$argocd-google-oidc:clientID` and `$argocd-google-oidc:clientSecret`):
 

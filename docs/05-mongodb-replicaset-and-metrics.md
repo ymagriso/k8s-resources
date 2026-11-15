@@ -127,11 +127,35 @@ curl -s https://mongo-metrics.<your-domain>/metrics | grep -E "^mongodb_up|^mong
 3. **In-Cluster Prometheus & Grafana Dashboards (`https://grafana.<your-domain>`):**
    The `monitoring` Argo CD application ([`argocd/apps/monitoring.yaml`](../argocd/apps/monitoring.yaml)) deploys **Prometheus** (scraping both `devops-demo` on `:8080/metrics` and all 3 MongoDB ReplicaSet pods via `mongodb-metrics` endpoint discovery on `:9216/metrics`) and **Grafana** with pre-provisioned dashboards (`DevOps Demo (sample-nodejs)` and `MongoDB ReplicaSet`), persisted on GlusterFS under `/shared/monitoring/`.
 
-   Retrieve the Grafana login credentials generated (or seeded via `GRAFANA_ADMIN_PASSWORD`) in `Secret/grafana-admin`:
+   **Google OAuth Login (Default When OIDC Secrets Are Configured):**
+   * `.github/scripts/bootstrap-cluster.sh` provisions `Secret/grafana-google-oidc` in `monitoring`, reusing `ARGOCD_GOOGLE_OIDC_CLIENT_ID` / `ARGOCD_GOOGLE_OIDC_CLIENT_SECRET` (or optional `GRAFANA_GOOGLE_OIDC_CLIENT_ID` / `GRAFANA_GOOGLE_OIDC_CLIENT_SECRET` overrides if set) and granting `Admin` to `ARGOCD_ADMIN_EMAIL` (falling back to `ACME_EMAIL`).
+   * Ensure `https://grafana.<your-domain>/login/google` is added to **Authorized redirect URIs** in your GCP OAuth 2.0 Web Client (see [Guide 04, Step 5](04-argocd-cloudflare-oidc.md#step-5-configure-google-oidc-authentication-disable-default-admin)).
+   * `GF_AUTH_GOOGLE_ALLOW_SIGN_UP=true` allows Grafana to auto-create user records on first Google login, while `GF_AUTH_GOOGLE_ROLE_ATTRIBUTE_STRICT=true` rejects any Google account whose email does not match `GF_AUTH_GOOGLE_ROLE_ATTRIBUTE_PATH`.
+
+   **Local Admin Fallback (`Secret/grafana-admin`):**
+   Retrieve the local admin credentials generated (or seeded via `GRAFANA_ADMIN_PASSWORD`) in `Secret/grafana-admin`:
 
 ```bash
 kubectl get secret grafana-admin -n monitoring -o jsonpath="{.data.admin-user}" | base64 -d; echo
 kubectl get secret grafana-admin -n monitoring -o jsonpath="{.data.admin-password}" | base64 -d; echo
+```
+
+   **Supported Grafana Roles (`GF_AUTH_GOOGLE_ROLE_ATTRIBUTE_PATH`):**
+   * `Viewer` — Read-only access to dashboards.
+   * `Editor` — View, create, and edit dashboards and panels (cannot manage users, data sources, or org settings).
+   * `Admin` — Full organization control (dashboards, data sources, alert rules, and organization settings).
+   * `GrafanaAdmin` — Instance-wide super-admin (requires setting `GF_AUTH_GOOGLE_ALLOW_ASSIGN_GRAFANA_ADMIN=true` as well, since Grafana defaults `allow_assign_grafana_admin` to `false`).
+
+   **Allowing Additional Google Email Addresses:**
+   1. **GCP OAuth Consent Screen:** If your GCP OAuth app is in **Testing** mode, add each new email under **Google Auth platform → Audience → Test users** in the GCP Console (see [Guide 04, Step 5](04-argocd-cloudflare-oidc.md#step-5-configure-google-oidc-authentication-disable-default-admin)).
+   2. **Update `GF_AUTH_GOOGLE_ROLE_ATTRIBUTE_PATH` in `Secret/grafana-google-oidc`:** Set a JMESPath expression mapping each allowed email to its Grafana role (`bootstrap-cluster.sh` preserves an existing `GF_AUTH_GOOGLE_ROLE_ATTRIBUTE_PATH` across re-runs), then restart Grafana so pods reload the Secret:
+
+```bash
+ROLE_EXPR='contains(`["admin@example.com"]`, email) && '\''Admin'\'' || contains(`["editor@example.com"]`, email) && '\''Editor'\'' || contains(`["viewer1@example.com", "viewer2@example.com"]`, email) && '\''Viewer'\'''
+kubectl patch secret grafana-google-oidc -n monitoring \
+  --type merge \
+  -p "$(jq -n --arg expr "$ROLE_EXPR" '{stringData: {GF_AUTH_GOOGLE_ROLE_ATTRIBUTE_PATH: $expr}}')"
+kubectl rollout restart deployment/grafana -n monitoring
 ```
 
 ---
