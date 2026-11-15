@@ -124,6 +124,16 @@ The Bitnami chart creates a `ClusterIP` service **`mongodb-metrics.mongodb.svc.c
 curl -s https://mongo-metrics.<your-domain>/metrics | grep -E "^mongodb_up|^mongodb_ss_connections"
 ```
 
+3. **In-Cluster Prometheus & Grafana Dashboards (`https://grafana.<your-domain>`):**
+   The `monitoring` Argo CD application ([`argocd/apps/monitoring.yaml`](../argocd/apps/monitoring.yaml)) deploys **Prometheus** (scraping both `devops-demo` on `:8080/metrics` and all 3 MongoDB ReplicaSet pods via `mongodb-metrics` endpoint discovery on `:9216/metrics`) and **Grafana** with pre-provisioned dashboards (`DevOps Demo (sample-nodejs)` and `MongoDB ReplicaSet`), persisted on GlusterFS under `/shared/monitoring/`.
+
+   Retrieve the Grafana login credentials generated (or seeded via `GRAFANA_ADMIN_PASSWORD`) in `Secret/grafana-admin`:
+
+```bash
+kubectl get secret grafana-admin -n monitoring -o jsonpath="{.data.admin-user}" | base64 -d; echo
+kubectl get secret grafana-admin -n monitoring -o jsonpath="{.data.admin-password}" | base64 -d; echo
+```
+
 ---
 
 [← Back to Main README](../README.md) | [← Previous: Argo CD, Cloudflare Tunnel & Google OIDC](04-argocd-cloudflare-oidc.md) | [Next: Operations & Cost Management →](06-operations-and-cleanup.md)

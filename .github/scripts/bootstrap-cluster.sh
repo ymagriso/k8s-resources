@@ -15,6 +15,8 @@ set -e
 : "${MONGO_REPLICA_KEY:=}"
 : "${DOCKER_REGISTRY_USERNAME:=admin}"
 : "${DOCKER_REGISTRY_PASSWORD:=}"
+: "${GRAFANA_ADMIN_USER:=admin}"
+: "${GRAFANA_ADMIN_PASSWORD:=}"
 
 TUNNEL_PID=""
 
@@ -113,6 +115,10 @@ configure_glusterfs_storage() {
   gcloud compute ssh rke2-node-1 --tunnel-through-iap --zone=me-west1-a --command='
     sudo chmod 777 /shared
     sudo mkdir -p /shared/docker-registry && sudo chmod 777 /shared/docker-registry
+    sudo mkdir -p /shared/monitoring/prometheus /shared/monitoring/grafana
+    sudo chown 65532:65532 /shared/monitoring/prometheus
+    sudo chown 472:0 /shared/monitoring/grafana
+    sudo chmod 755 /shared/monitoring /shared/monitoring/prometheus /shared/monitoring/grafana
   '
 
   echo "Checking /shared GlusterFS mount and volume status across all nodes:"
@@ -125,7 +131,7 @@ configure_glusterfs_storage() {
 
 create_core_namespaces() {
   echo "Creating core namespaces..."
-  for ns in cert-manager cloudflared argocd mongodb docker-registry devops-demo; do
+  for ns in cert-manager cloudflared argocd mongodb docker-registry devops-demo monitoring; do
     kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
   done
 }
@@ -190,6 +196,41 @@ configure_docker_registry_auth() {
         | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.managedFields, .metadata.ownerReferences)' \
         | gcloud storage cp - "${registry_auth_cache_uri}" 2>/dev/null || true
       echo "::notice::Docker Registry auth secret generated for user '${reg_user}'. Set DOCKER_REGISTRY_PASSWORD in GitHub Secrets to override."
+    fi
+  fi
+}
+
+configure_grafana_auth() {
+  echo "Configuring Grafana admin credentials..."
+  local project_id grafana_auth_cache_uri graf_user graf_pass
+  project_id=$(gcloud config get-value project)
+  grafana_auth_cache_uri="gs://${project_id}-tofu-state/secrets/grafana-admin.json"
+  graf_user="${GRAFANA_ADMIN_USER:-admin}"
+
+  if [ -n "$GRAFANA_ADMIN_PASSWORD" ]; then
+    graf_pass="$GRAFANA_ADMIN_PASSWORD"
+    kubectl create secret generic grafana-admin -n monitoring \
+      --from-literal=admin-user="$graf_user" \
+      --from-literal=admin-password="$graf_pass" \
+      --dry-run=client -o yaml | kubectl apply -f -
+    kubectl get secret grafana-admin -n monitoring -o json \
+      | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.managedFields, .metadata.ownerReferences)' \
+      | gcloud storage cp - "${grafana_auth_cache_uri}" 2>/dev/null || true
+  elif ! kubectl get secret grafana-admin -n monitoring >/dev/null 2>&1; then
+    if gcloud storage ls "${grafana_auth_cache_uri}" >/dev/null 2>&1; then
+      echo "Restoring cached grafana-admin Secret from ${grafana_auth_cache_uri}..."
+      gcloud storage cat "${grafana_auth_cache_uri}" | kubectl apply -f -
+    else
+      echo "Generating random initial password for Grafana user '${graf_user}'..."
+      graf_pass=$(openssl rand -base64 18)
+      kubectl create secret generic grafana-admin -n monitoring \
+        --from-literal=admin-user="$graf_user" \
+        --from-literal=admin-password="$graf_pass" \
+        --dry-run=client -o yaml | kubectl apply -f -
+      kubectl get secret grafana-admin -n monitoring -o json \
+        | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.managedFields, .metadata.ownerReferences)' \
+        | gcloud storage cp - "${grafana_auth_cache_uri}" 2>/dev/null || true
+      echo "::notice::Grafana admin secret generated for user '${graf_user}'. Set GRAFANA_ADMIN_PASSWORD in GitHub Secrets to override."
     fi
   fi
 }
@@ -363,6 +404,7 @@ main() {
   create_core_namespaces
   inject_cluster_secrets
   configure_docker_registry_auth
+  configure_grafana_auth
   install_core_helm_charts
   configure_domain_and_certificates
   bootstrap_root_app

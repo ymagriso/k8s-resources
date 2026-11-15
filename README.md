@@ -23,6 +23,7 @@ flowchart LR
             Mongo["MongoDB 8.0.13 (3-Node ReplicaSet + Metrics)"]
             Registry["Docker Registry (50 GB 3-Node GlusterFS /shared)"]
             Demo["devops-demo (Node.js App)"]
+            Mon["Monitoring (Prometheus + Grafana)"]
         end
     end
     GH["GitHub (ymagriso/k8s-resources)"]
@@ -32,6 +33,9 @@ flowchart LR
     CFD -->|"Strict HTTPS (:443)"| Registry
     CFD -->|"TCP (:27017) & Metrics (:9216)"| Mongo
     CFD -->|"HTTP (:8080)"| Demo
+    CFD -->|"HTTP (:3000)"| Mon
+    Mon -->|"Scrapes :8080 & :9216"| Demo
+    Mon -->|"Scrapes :9216"| Mongo
     CM -->|"Issues TLS Secret"| Argo
     Argo -->|"Syncs GitOps State"| GH
 ```
@@ -120,6 +124,7 @@ k8s-resources/
         ├── rke2-upgrade-plans.yaml                     # RKE2 automated upgrade Plans Application
         ├── devops-demo.yaml                            # sample-nodejs OCI Helm GitOps Application
         ├── docker-registry.yaml                        # Docker Registry GitOps Application
+        ├── monitoring.yaml                             # Prometheus + Grafana Monitoring GitOps Application
         └── workloads/
             ├── cloudflared/
             │   ├── namespace.yaml
@@ -128,6 +133,13 @@ k8s-resources/
             │   ├── namespace.yaml
             │   ├── service.yaml                        # Exposes port 443 (HTTPS) & 5000
             │   └── deployment.yaml                     # Native TLS (Let's Encrypt), htpasswd auth, storage on /shared/docker-registry
+            ├── monitoring/
+            │   ├── namespace.yaml
+            │   ├── prometheus-rbac.yaml                # Read-only Kubernetes endpoint discovery RBAC
+            │   ├── prometheus-config.yaml              # Scrape configs for devops-demo & MongoDB ReplicaSet
+            │   ├── prometheus-deployment.yaml          # Prometheus (TSDB on /shared/monitoring/prometheus)
+            │   ├── grafana-provisioning.yaml           # Pre-provisioned Prometheus datasource & workload dashboards
+            │   └── grafana-deployment.yaml             # Grafana (state on /shared/monitoring/grafana, auth via grafana-admin Secret)
             ├── system-upgrade-controller/
             │   └── kustomization.yaml                  # Upstream pinned SUC manifests & CRDs
             └── rke2-upgrade-plans/

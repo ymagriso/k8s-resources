@@ -20,6 +20,7 @@ Argo CD is deployed using the official `argo/argo-cd` Helm chart (Standard singl
 * **`cert-manager`** ([`argocd/apps/cert-manager.yaml`](../argocd/apps/cert-manager.yaml) + [`cert-manager/values.yaml`](../cert-manager/values.yaml))
 * **Cloudflare Tunnel (`cloudflared`)** ([`argocd/apps/cloudflared.yaml`](../argocd/apps/cloudflared.yaml) + [`argocd/apps/workloads/cloudflared/`](../argocd/apps/workloads/cloudflared/))
 * **MongoDB ReplicaSet (`mongodb`)** ([`argocd/apps/mongodb.yaml`](../argocd/apps/mongodb.yaml) + [`mongodb/values.yaml`](../mongodb/values.yaml))
+* **Monitoring (`monitoring`)** ([`argocd/apps/monitoring.yaml`](../argocd/apps/monitoring.yaml) + [`argocd/apps/workloads/monitoring/`](../argocd/apps/workloads/monitoring/))
 * **System Upgrade Controller** ([`argocd/apps/system-upgrade-controller.yaml`](../argocd/apps/system-upgrade-controller.yaml) + [`argocd/apps/workloads/system-upgrade-controller/`](../argocd/apps/workloads/system-upgrade-controller/))
 * **RKE2 Upgrade Plans** ([`argocd/apps/rke2-upgrade-plans.yaml`](../argocd/apps/rke2-upgrade-plans.yaml) + [`argocd/apps/workloads/rke2-upgrade-plans/`](../argocd/apps/workloads/rke2-upgrade-plans/))
 
@@ -81,6 +82,7 @@ kubectl rollout status deployment argocd-server -n argocd
      * **`registry`:** `https://docker-registry.docker-registry.svc.cluster.local:443` (`origin_tls_verify_host: true` sets `origin_server_name: registry.<your-domain>`)
      * **`mongodb`:** `tcp://mongodb-0.mongodb-headless.mongodb.svc.cluster.local:27017`
      * **`mongo-metrics`:** `http://mongodb-metrics.mongodb.svc.cluster.local:9216`
+     * **`grafana`:** `http://grafana.monitoring.svc.cluster.local:3000`
    * Pull requests touching `tofu/cloudflare/**` run `tofu plan` under the single required `OpenTofu Plan/Apply & Bootstrap` check (skipping GCP steps unless GCP files also changed), and merges to `main` (or manual `workflow_dispatch`) import any pre-existing tunnel config/CNAMEs and run `tofu apply` against the isolated `cloudflare-tunnel` GCS state prefix.
 
 ## Step 4: Bootstrap GitOps (Root App-of-Apps)
