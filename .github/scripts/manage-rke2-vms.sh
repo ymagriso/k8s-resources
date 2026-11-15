@@ -3,7 +3,19 @@
 
 set -euo pipefail
 
+is_within_shutdown_window() {
+  local hour_str="${1:-$(TZ=Asia/Jerusalem date +%H)}"
+  local hour_num=$((10#$hour_str))
+  # Enforce nightly shutdown only between 23:00 and 06:59 Asia/Jerusalem.
+  (( hour_num == 23 || (hour_num >= 0 && hour_num <= 6) ))
+}
+
 stop_rke2_vms() {
+  if [[ "${ENFORCE_SHUTDOWN_WINDOW:-false}" == "true" ]] && ! is_within_shutdown_window; then
+    echo "Current Asia/Jerusalem time ($(TZ=Asia/Jerusalem date '+%Y-%m-%d %H:%M %Z')) is outside the 23:00–06:59 shutdown window. Skipping scheduled stop."
+    return 0
+  fi
+
   local transitioning running
   for i in {1..24}; do
     transitioning=$(gcloud compute instances list \
