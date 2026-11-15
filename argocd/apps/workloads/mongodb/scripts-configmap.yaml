@@ -14,7 +14,7 @@ data:
     M1="mongodb-1.${HEADLESS}:27017"
     M2="mongodb-2.${HEADLESS}:27017"
 
-    if [ "$(hostname -s)" != "mongodb-0" ]; then
+    if [ "${HOSTNAME%%.*}" != "mongodb-0" ]; then
       exec /usr/bin/mongod --replSet "$RS_NAME" --keyFile /keyfile/key --bind_ip_all --wiredTigerCacheSizeGB 0.5
     fi
 
