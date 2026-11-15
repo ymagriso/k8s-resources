@@ -17,6 +17,8 @@ set -e
 : "${DOCKER_REGISTRY_PASSWORD:=}"
 : "${GRAFANA_ADMIN_USER:=admin}"
 : "${GRAFANA_ADMIN_PASSWORD:=}"
+: "${GRAFANA_GOOGLE_OIDC_CLIENT_ID:=}"
+: "${GRAFANA_GOOGLE_OIDC_CLIENT_SECRET:=}"
 
 TUNNEL_PID=""
 
@@ -232,6 +234,44 @@ configure_grafana_auth() {
         | gcloud storage cp - "${grafana_auth_cache_uri}" 2>/dev/null || true
       echo "::notice::Grafana admin secret generated for user '${graf_user}'. Set GRAFANA_ADMIN_PASSWORD in GitHub Secrets to override."
     fi
+  fi
+
+  configure_grafana_google_oidc
+}
+
+configure_grafana_google_oidc() {
+  local oidc_client_id oidc_client_secret admin_email prev_rv new_rv role_attr_path
+  oidc_client_id="${GRAFANA_GOOGLE_OIDC_CLIENT_ID:-${GOOGLE_OIDC_CLIENT_ID:-}}"
+  oidc_client_secret="${GRAFANA_GOOGLE_OIDC_CLIENT_SECRET:-${GOOGLE_OIDC_CLIENT_SECRET:-}}"
+  admin_email="${ARGOCD_ADMIN_EMAIL:-${ACME_EMAIL:-}}"
+
+  if [ -z "${CUSTOM_DOMAIN:-}" ] || [ -z "$oidc_client_id" ] || [ -z "$oidc_client_secret" ] || [ -z "$admin_email" ]; then
+    echo "Skipping Grafana Google OIDC secret (missing CUSTOM_DOMAIN, OIDC client credentials, or admin email)."
+    return 0
+  fi
+
+  echo "Configuring Grafana Google OIDC secret..."
+  prev_rv=$(kubectl get secret grafana-google-oidc -n monitoring -o jsonpath='{.metadata.resourceVersion}' 2>/dev/null || true)
+  role_attr_path=$(kubectl get secret grafana-google-oidc -n monitoring -o jsonpath='{.data.GF_AUTH_GOOGLE_ROLE_ATTRIBUTE_PATH}' 2>/dev/null | base64 -d 2>/dev/null || true)
+  if [ -z "$role_attr_path" ]; then
+    role_attr_path="email == '${admin_email}' && 'Admin'"
+  fi
+
+  kubectl create secret generic grafana-google-oidc -n monitoring \
+    --from-literal=GF_SERVER_ROOT_URL="https://grafana.${CUSTOM_DOMAIN}" \
+    --from-literal=GF_AUTH_GOOGLE_ENABLED="true" \
+    --from-literal=GF_AUTH_GOOGLE_ALLOW_SIGN_UP="true" \
+    --from-literal=GF_AUTH_GOOGLE_CLIENT_ID="${oidc_client_id}" \
+    --from-literal=GF_AUTH_GOOGLE_CLIENT_SECRET="${oidc_client_secret}" \
+    --from-literal=GF_AUTH_GOOGLE_ROLE_ATTRIBUTE_PATH="${role_attr_path}" \
+    --from-literal=GF_AUTH_GOOGLE_ROLE_ATTRIBUTE_STRICT="true" \
+    --from-literal=GF_AUTH_GOOGLE_SKIP_ORG_ROLE_SYNC="false" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+  new_rv=$(kubectl get secret grafana-google-oidc -n monitoring -o jsonpath='{.metadata.resourceVersion}' 2>/dev/null || true)
+  if [ -n "$new_rv" ] && [ "$new_rv" != "$prev_rv" ] && kubectl get deployment grafana -n monitoring >/dev/null 2>&1; then
+    echo "Restarting Grafana Deployment to pick up updated Google OIDC secret..."
+    kubectl rollout restart deployment/grafana -n monitoring
   fi
 }
 
