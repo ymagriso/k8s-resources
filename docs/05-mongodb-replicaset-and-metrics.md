@@ -2,7 +2,7 @@
 
 ---
 
-# 5. Deploy MongoDB ReplicaSet (`8.0.13`) & Prometheus Metrics Exporter
+# 5. Deploy MongoDB ReplicaSet (`8.0`) & Prometheus Metrics Exporter
 
 - [Overview & Architecture](#overview--architecture)
 - [Resource Requests & Limits Sizing Rationale](#resource-requests--limits-sizing-rationale)
@@ -15,13 +15,13 @@
 
 ## Overview & Architecture
 
-MongoDB is deployed into a dedicated **`mongodb`** namespace via Argo CD ([`argocd/apps/mongodb.yaml`](../argocd/apps/mongodb.yaml)) using the **Bitnami MongoDB Helm Chart** (`version: 16.5.45`, which packages **MongoDB `8.0.13`**) and values defined in [`mongodb/values.yaml`](../mongodb/values.yaml).
+MongoDB is deployed into a dedicated **`mongodb`** namespace via Argo CD ([`argocd/apps/mongodb.yaml`](../argocd/apps/mongodb.yaml)) using a custom Kustomize `StatefulSet` in [`argocd/apps/workloads/mongodb/`](../argocd/apps/workloads/mongodb/) running **MongoDB Community Server (`8.0.38-ubi9-slim`)** alongside a **`percona/mongodb_exporter:0.54.0`** sidecar.
 
 ### Key Design Choices
-* **ReplicaSet Topology (1 Replica per Node):** Configured with `architecture: replicaset`, `replicaCount: 3`, and `podAntiAffinityPreset: hard`, guaranteeing that `mongodb-0`, `mongodb-1`, and `mongodb-2` are scheduled on separate RKE2 nodes (`rke2-node-1`, `rke2-node-2`, `rke2-node-3`).
-* **No Arbiter & Ephemeral Storage:** `arbiter.enabled: false` (3 data-bearing replicas already form a complete voting quorum) and `persistence.enabled: false` (`emptyDir` storage).
-* **Bitnami Legacy Registry Compatibility:** Because Broadcom/Bitnami migrated pinned non-latest container tags on Docker Hub from `docker.io/bitnami/*` to `docker.io/bitnamilegacy/*`, [`mongodb/values.yaml`](../mongodb/values.yaml) sets `global.security.allowInsecureImages: true`, `image.repository: bitnamilegacy/mongodb` (`8.0.13-debian-12-r0`), and `metrics.image.repository: bitnamilegacy/mongodb-exporter` (`0.47.0-debian-12-r1`).
-* **GitOps Secret Stability:** Because Bitnami's Helm chart randomly generates `mongodb-root-password` and `mongodb-replica-set-key` when rendered with `helm template`, [`argocd/apps/mongodb.yaml`](../argocd/apps/mongodb.yaml) configures `ignoreDifferences` on `Secret/mongodb` (`/data`) along with `RespectIgnoreDifferences=true` and `ApplyOutOfSyncOnly=true`. This creates the `Secret` automatically on initial deployment and preserves it across all future syncs without storing credentials in Git.
+* **ReplicaSet Topology (1 Replica per Node):** Configured with `replicas: 3` and hard `podAntiAffinity` on `kubernetes.io/hostname`, guaranteeing that `mongodb-0`, `mongodb-1`, and `mongodb-2` are scheduled on separate RKE2 nodes (`rke2-node-1`, `rke2-node-2`, `rke2-node-3`).
+* **No Arbiter & Ephemeral Storage:** 3 data-bearing replicas provide a full voting quorum without a separate arbiter, backed by `emptyDir` storage and `--wiredTigerCacheSizeGB 0.5`.
+* **Minimal-CVE Pinned UBI9-slim & Distroless Images:** Uses `docker.io/mongodb/mongodb-community-server:8.0.38-ubi9-slim` (`runAsUser: 1000`, `readOnlyRootFilesystem: true`) and `docker.io/percona/mongodb_exporter:0.54.0` (`runAsUser: 65535`, `readOnlyRootFilesystem: true`), keeping explicit version tags tracked by Renovate (with major and minor upgrades disabled to remain on `8.0.x` LTS patches).
+* **Bootstrap & GitOps Secret Stability:** [`bootstrap-cluster.sh`](../.github/scripts/bootstrap-cluster.sh) provisions (or restores/caches) `Secret/mongodb` out-of-band without storing credentials in Git, while `mongodb-0`'s entrypoint script idempotently runs `rs.initiate()` (`rs0`) and ensures the `root` user exists whenever peers have no active ReplicaSet.
 
 ---
 
@@ -110,7 +110,7 @@ docker run --rm -it --network host mongo:8.0.13 \
 
 ## Step 4: Externalize Prometheus Metrics (`9216/TCP`) via Cloudflare Tunnel
 
-The Bitnami chart creates a `ClusterIP` service **`mongodb-metrics.mongodb.svc.cluster.local:9216`** exposing Prometheus metrics at `/metrics`.
+[`services.yaml`](../argocd/apps/workloads/mongodb/services.yaml) creates a `ClusterIP` service **`mongodb-metrics.mongodb.svc.cluster.local:9216`** exposing Prometheus metrics at `/metrics`.
 
 1. **Declarative Tunnel Route (`tofu/cloudflare/routes.yaml`):**
    The `mongo-metrics` HTTP route and its proxied DNS CNAME record (`mongo-metrics.<your-domain>`) are managed declaratively in [`tofu/cloudflare/routes.yaml`](../tofu/cloudflare/routes.yaml) and applied via [`.github/workflows/tofu-apply.yml`](../.github/workflows/tofu-apply.yml):

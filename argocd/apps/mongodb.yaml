@@ -7,30 +7,13 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  sources:
-    - repoURL: registry-1.docker.io/bitnamicharts
-      chart: mongodb
-      targetRevision: 16.5.45
-      helm:
-        releaseName: mongodb
-        valueFiles:
-          - $values/mongodb/values.yaml
-    - repoURL: https://github.com/ymagriso/k8s-resources.git
-      targetRevision: HEAD
-      ref: values
+  source:
+    repoURL: https://github.com/ymagriso/k8s-resources.git
+    targetRevision: HEAD
+    path: argocd/apps/workloads/mongodb
   destination:
     server: https://kubernetes.default.svc
     namespace: mongodb
-  # Bitnami's chart generates random passwords in Secret/mongodb when rendered via
-  # `helm template`. Ignoring /data combined with RespectIgnoreDifferences=true and
-  # ApplyOutOfSyncOnly=true ensures the Secret is created on initial sync and never
-  # overwritten on subsequent reconciliations.
-  ignoreDifferences:
-    - group: ""
-      kind: Secret
-      name: mongodb
-      jsonPointers:
-        - /data
   syncPolicy:
     automated:
       prune: true
@@ -38,5 +21,3 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
-      - RespectIgnoreDifferences=true
-      - ApplyOutOfSyncOnly=true
