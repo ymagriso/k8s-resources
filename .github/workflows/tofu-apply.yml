@@ -158,6 +158,8 @@ jobs:
           MONGO_REPLICA_KEY: ${{ secrets.MONGODB_REPLICA_SET_KEY }}
           DOCKER_REGISTRY_USERNAME: ${{ secrets.DOCKER_REGISTRY_USERNAME || 'admin' }}
           DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER || 'admin' }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
         run: .github/scripts/bootstrap-cluster.sh
 
       - name: Resolve Cloudflare Credentials & Domain

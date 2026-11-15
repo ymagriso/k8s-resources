@@ -34,3 +34,7 @@ routes:
   - subdomain: mongo-metrics
     service: http://mongodb-metrics.mongodb.svc.cluster.local:9216
     comment: MongoDB Prometheus metrics exporter
+
+  - subdomain: grafana
+    service: http://grafana.monitoring.svc.cluster.local:3000
+    comment: Grafana monitoring dashboards
