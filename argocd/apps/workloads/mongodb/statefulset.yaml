@@ -116,7 +116,7 @@ spec:
                 - --port
                 - "27017"
                 - --eval
-                - quit(db.hello().ok === 1 ? 0 : 1)
+                - "if (db.hello().ok !== 1) quit(1)"
             initialDelaySeconds: 30
             periodSeconds: 15
             timeoutSeconds: 10
@@ -131,7 +131,7 @@ spec:
                 - --port
                 - "27017"
                 - --eval
-                - quit(db.hello().ok === 1 ? 0 : 1)
+                - "if (db.hello().ok !== 1) quit(1)"
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 10
