@@ -1,0 +1,215 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  namespace: mongodb
+  labels:
+    app.kubernetes.io/name: mongodb
+    app.kubernetes.io/instance: mongodb
+    app.kubernetes.io/component: mongodb
+spec:
+  serviceName: mongodb-headless
+  podManagementPolicy: OrderedReady
+  replicas: 3
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongodb
+      app.kubernetes.io/instance: mongodb
+      app.kubernetes.io/component: mongodb
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongodb
+        app.kubernetes.io/instance: mongodb
+        app.kubernetes.io/component: mongodb
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: mongodb
+                  app.kubernetes.io/instance: mongodb
+                  app.kubernetes.io/component: mongodb
+              topologyKey: kubernetes.io/hostname
+      initContainers:
+        - name: init-keyfile
+          image: docker.io/mongodb/mongodb-community-server:8.0.38-ubi9-slim
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - bash
+            - -ec
+            - cp /secret/mongodb-replica-set-key /keyfile/key && chmod 0400 /keyfile/key
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: secret
+              mountPath: /secret
+              readOnly: true
+            - name: keyfile
+              mountPath: /keyfile
+      containers:
+        - name: mongodb
+          image: docker.io/mongodb/mongodb-community-server:8.0.38-ubi9-slim
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - bash
+            - /scripts/entrypoint.sh
+          env:
+            - name: HOME
+              value: /tmp
+            - name: MONGODB_REPLICA_SET_NAME
+              value: rs0
+            - name: MONGODB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb
+                  key: mongodb-root-password
+          ports:
+            - name: mongodb
+              containerPort: 27017
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          livenessProbe:
+            exec:
+              command:
+                - mongosh
+                - --quiet
+                - --host
+                - 127.0.0.1
+                - --port
+                - "27017"
+                - --eval
+                - quit(db.hello().ok === 1 ? 0 : 1)
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command:
+                - mongosh
+                - --quiet
+                - --host
+                - 127.0.0.1
+                - --port
+                - "27017"
+                - --eval
+                - quit(db.hello().ok === 1 ? 0 : 1)
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+            - name: tmp
+              mountPath: /tmp
+            - name: keyfile
+              mountPath: /keyfile
+              readOnly: true
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+        - name: metrics
+          image: docker.io/percona/mongodb_exporter:0.54.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 65535
+            runAsGroup: 65535
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          args:
+            - --collector.diagnosticdata
+            - --collector.replicasetstatus
+            - --compatible-mode
+            - --mongodb.direct-connect
+            - --mongodb.global-conn-pool
+            - --web.listen-address=:9216
+            - --mongodb.uri=mongodb://127.0.0.1:27017/admin
+          env:
+            - name: MONGODB_USER
+              value: root
+            - name: MONGODB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb
+                  key: mongodb-root-password
+          ports:
+            - name: metrics
+              containerPort: 9216
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: metrics
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: keyfile
+          emptyDir: {}
+        - name: secret
+          secret:
+            secretName: mongodb
+        - name: scripts
+          configMap:
+            name: mongodb-scripts
+            defaultMode: 0555

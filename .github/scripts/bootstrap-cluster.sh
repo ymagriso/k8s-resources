@@ -160,10 +160,35 @@ inject_cluster_secrets() {
     kubectl label secret argocd-google-oidc -n argocd app.kubernetes.io/part-of=argocd --overwrite
   fi
 
+  local mongo_auth_cache_uri mongo_root_pass mongo_replica_key project_id
+  project_id=$(gcloud config get-value project)
+  mongo_auth_cache_uri="gs://${project_id}-tofu-state/secrets/mongodb.json"
   if [ -n "$MONGO_ROOT_PASSWORD" ] && [ -n "$MONGO_REPLICA_KEY" ]; then
     kubectl create secret generic mongodb -n mongodb \
       --from-literal=mongodb-root-password="$MONGO_ROOT_PASSWORD" \
       --from-literal=mongodb-replica-set-key="$MONGO_REPLICA_KEY" --dry-run=client -o yaml | kubectl apply -f -
+    kubectl get secret mongodb -n mongodb -o json \
+      | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.managedFields, .metadata.ownerReferences)' \
+      | gcloud storage cp - "${mongo_auth_cache_uri}" 2>/dev/null || true
+  elif ! kubectl get secret mongodb -n mongodb >/dev/null 2>&1; then
+    if gcloud storage ls "${mongo_auth_cache_uri}" >/dev/null 2>&1; then
+      echo "Restoring cached mongodb Secret from ${mongo_auth_cache_uri}..."
+      gcloud storage cat "${mongo_auth_cache_uri}" | kubectl apply -f -
+    else
+      echo "Generating initial credentials for Secret/mongodb..."
+      mongo_root_pass=$(openssl rand -base64 24 | tr -d '/+=')
+      mongo_replica_key=$(openssl rand -base64 756 | tr -d '\n')
+      kubectl create secret generic mongodb -n mongodb \
+        --from-literal=mongodb-root-password="$mongo_root_pass" \
+        --from-literal=mongodb-replica-set-key="$mongo_replica_key" --dry-run=client -o yaml | kubectl apply -f -
+      kubectl get secret mongodb -n mongodb -o json \
+        | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.managedFields, .metadata.ownerReferences)' \
+        | gcloud storage cp - "${mongo_auth_cache_uri}" 2>/dev/null || true
+    fi
+  fi
+  if kubectl get secret mongodb -n mongodb >/dev/null 2>&1; then
+    kubectl annotate secret mongodb -n mongodb argocd.argoproj.io/tracking-id- 2>/dev/null || true
+    kubectl label secret mongodb -n mongodb app.kubernetes.io/instance- app.kubernetes.io/managed-by- helm.sh/chart- 2>/dev/null || true
   fi
 }
 

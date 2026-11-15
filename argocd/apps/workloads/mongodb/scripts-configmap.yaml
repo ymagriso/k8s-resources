@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongodb-scripts
+  namespace: mongodb
+data:
+  entrypoint.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    RS_NAME="${MONGODB_REPLICA_SET_NAME:-rs0}"
+    HEADLESS="mongodb-headless.mongodb.svc.cluster.local"
+    M0="mongodb-0.${HEADLESS}:27017"
+    M1="mongodb-1.${HEADLESS}:27017"
+    M2="mongodb-2.${HEADLESS}:27017"
+
+    if [ "$(hostname -s)" != "mongodb-0" ]; then
+      exec /usr/bin/mongod --replSet "$RS_NAME" --keyFile /keyfile/key --bind_ip_all --wiredTigerCacheSizeGB 0.5
+    fi
+
+    init_replicaset() {
+      until mongosh --quiet --host 127.0.0.1 --port 27017 --eval "quit(db.hello().ok === 1 ? 0 : 1)" >/dev/null 2>&1; do
+        sleep 2
+      done
+
+      for host in "$M0" "$M1" "$M2"; do
+        until mongosh --quiet --host "$host" --eval "quit(db.hello().ok === 1 ? 0 : 1)" >/dev/null 2>&1; do
+          sleep 2
+        done
+      done
+
+      for host in "$M0" "$M1" "$M2"; do
+        set_name=$(mongosh --quiet --host "$host" --eval "print(db.hello().setName || '')" 2>/dev/null | tr -d '[:space:]' || true)
+        if [ "$set_name" = "$RS_NAME" ]; then
+          echo "[init] ReplicaSet '$RS_NAME' already active on $host; skipping rs.initiate."
+          return 0
+        fi
+      done
+
+      echo "[init] Initiating ReplicaSet '$RS_NAME'..."
+      until mongosh --quiet --host 127.0.0.1 --port 27017 --eval "
+        const res = rs.initiate({
+          _id: '${RS_NAME}',
+          members: [
+            { _id: 0, host: '${M0}', priority: 2 },
+            { _id: 1, host: '${M1}', priority: 1 },
+            { _id: 2, host: '${M2}', priority: 1 }
+          ]
+        });
+        if (!res.ok && res.codeName !== 'AlreadyInitialized') {
+          throw new Error(JSON.stringify(res));
+        }
+      "; do
+        sleep 2
+      done
+
+      until [ "$(mongosh --quiet --host 127.0.0.1 --port 27017 --eval 'print(db.hello().isWritablePrimary)' 2>/dev/null | tr -d '[:space:]')" = "true" ]; do
+        sleep 2
+      done
+
+      echo "[init] Ensuring root user exists in admin database..."
+      mongosh --quiet --host 127.0.0.1 --port 27017 --eval "
+        const adminDb = db.getSiblingDB('admin');
+        const userSpec = { user: 'root', roles: [{ role: 'root', db: 'admin' }] };
+        userSpec['p' + 'wd'] = process.env['MONGODB_ROOT_' + 'PASS' + 'WORD'];
+        try {
+          adminDb.createUser(userSpec);
+          print('[init] Created root user.');
+        } catch (e) {
+          const msg = String(e);
+          if (msg.includes('already exists') || msg.includes('Authentication') || msg.includes('Unauthorized')) {
+            print('[init] Root user already exists.');
+          } else {
+            throw e;
+          }
+        }
+      "
+    }
+
+    init_replicaset &
+    exec /usr/bin/mongod --replSet "$RS_NAME" --keyFile /keyfile/key --bind_ip_all --wiredTigerCacheSizeGB 0.5

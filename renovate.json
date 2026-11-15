@@ -89,12 +89,14 @@
       ]
     },
     {
-      "description": "Disable major chart upgrades for bitnamicharts/mongodb to stay aligned with MongoDB 8.0.13 (chart 16.x)",
+      "description": "Disable major and minor version upgrades for mongodb/mongodb-community-server to stay on MongoDB 8.0.x LTS patch releases",
       "matchPackageNames": [
-        "registry-1.docker.io/bitnamicharts/mongodb"
+        "docker.io/mongodb/mongodb-community-server",
+        "mongodb/mongodb-community-server"
       ],
       "matchUpdateTypes": [
-        "major"
+        "major",
+        "minor"
       ],
       "enabled": false
     },

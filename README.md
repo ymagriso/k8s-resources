@@ -107,8 +107,6 @@ k8s-resources/
 ├── cert-manager/
 │   ├── values.yaml                                     # Helm values for jetstack/cert-manager
 │   └── cluster-issuers.yaml                            # Let's Encrypt Staging & Prod ClusterIssuers (DNS-01)
-├── mongodb/
-│   └── values.yaml                                     # Helm values for bitnami/mongodb (8.0.13 ReplicaSet + Metrics)
 └── argocd/
     ├── values.yaml                                     # Helm values for argo/argo-cd (Google OIDC enabled)
     ├── certificate.yaml                                # Let's Encrypt Certificate for argocd-server-tls
@@ -119,7 +117,7 @@ k8s-resources/
         ├── argocd.yaml                                 # Argo CD self-management Application
         ├── cert-manager.yaml                           # cert-manager GitOps Application
         ├── cloudflared.yaml                            # Cloudflare Tunnel GitOps Application
-        ├── mongodb.yaml                                # Bitnami MongoDB ReplicaSet GitOps Application
+        ├── mongodb.yaml                                # MongoDB ReplicaSet Kustomize GitOps Application
         ├── system-upgrade-controller.yaml              # Rancher System Upgrade Controller Application
         ├── rke2-upgrade-plans.yaml                     # RKE2 automated upgrade Plans Application
         ├── devops-demo.yaml                            # sample-nodejs OCI Helm GitOps Application
@@ -133,6 +131,12 @@ k8s-resources/
             │   ├── namespace.yaml
             │   ├── service.yaml                        # Exposes port 443 (HTTPS) & 5000
             │   └── deployment.yaml                     # Native TLS (Let's Encrypt), htpasswd auth, storage on /shared/docker-registry
+            ├── mongodb/
+            │   ├── kustomization.yaml                  # Kustomize entrypoint for MongoDB ReplicaSet + Exporter
+            │   ├── namespace.yaml
+            │   ├── scripts-configmap.yaml              # ReplicaSet auto-init & root user bootstrap script
+            │   ├── services.yaml                       # Headless (27017) & metrics (9216) Services
+            │   └── statefulset.yaml                    # mongodb-community-server (8.0.x UBI9-slim) + percona/mongodb_exporter
             ├── monitoring/
             │   ├── namespace.yaml
             │   ├── prometheus-rbac.yaml                # Read-only Kubernetes endpoint discovery RBAC

@@ -19,7 +19,7 @@ Argo CD is deployed using the official `argo/argo-cd` Helm chart (Standard singl
 * **Itself** ([`argocd/apps/argocd.yaml`](../argocd/apps/argocd.yaml) + [`argocd/values.yaml`](../argocd/values.yaml))
 * **`cert-manager`** ([`argocd/apps/cert-manager.yaml`](../argocd/apps/cert-manager.yaml) + [`cert-manager/values.yaml`](../cert-manager/values.yaml))
 * **Cloudflare Tunnel (`cloudflared`)** ([`argocd/apps/cloudflared.yaml`](../argocd/apps/cloudflared.yaml) + [`argocd/apps/workloads/cloudflared/`](../argocd/apps/workloads/cloudflared/))
-* **MongoDB ReplicaSet (`mongodb`)** ([`argocd/apps/mongodb.yaml`](../argocd/apps/mongodb.yaml) + [`mongodb/values.yaml`](../mongodb/values.yaml))
+* **MongoDB ReplicaSet (`mongodb`)** ([`argocd/apps/mongodb.yaml`](../argocd/apps/mongodb.yaml) + [`argocd/apps/workloads/mongodb/`](../argocd/apps/workloads/mongodb/))
 * **Monitoring (`monitoring`)** ([`argocd/apps/monitoring.yaml`](../argocd/apps/monitoring.yaml) + [`argocd/apps/workloads/monitoring/`](../argocd/apps/workloads/monitoring/))
 * **System Upgrade Controller** ([`argocd/apps/system-upgrade-controller.yaml`](../argocd/apps/system-upgrade-controller.yaml) + [`argocd/apps/workloads/system-upgrade-controller/`](../argocd/apps/workloads/system-upgrade-controller/))
 * **RKE2 Upgrade Plans** ([`argocd/apps/rke2-upgrade-plans.yaml`](../argocd/apps/rke2-upgrade-plans.yaml) + [`argocd/apps/workloads/rke2-upgrade-plans/`](../argocd/apps/workloads/rke2-upgrade-plans/))
