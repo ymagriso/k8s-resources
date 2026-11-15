@@ -2,8 +2,9 @@ name: "RKE2 VMs Power Management"
 
 on:
   schedule:
-    - cron: "0 23,0-6 * * *"
-      timezone: "Asia/Jerusalem"
+    # Run hourly across 20:00–04:59 UTC (covers 23:00–06:59 Asia/Jerusalem in both IST UTC+2 and IDT UTC+3).
+    # Minute 17 avoids top-of-hour (:00) GitHub Actions queue congestion; the script enforces the local hour window.
+    - cron: "17 20-23,0-4 * * *"
   workflow_dispatch:
     inputs:
       action:
@@ -30,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ACTION: ${{ github.event.inputs.action || 'stop' }}
+      ENFORCE_SHUTDOWN_WINDOW: ${{ github.event_name == 'schedule' }}
 
     steps:
       - name: Checkout Code

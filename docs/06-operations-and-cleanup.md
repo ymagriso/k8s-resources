@@ -84,7 +84,7 @@ Before selecting GitHub Actions as the execution environment, three architectura
 
 ### How the Trivy Workflow Operates
 
-The workflow ([`.github/workflows/trivy-scan.yml`](../.github/workflows/trivy-scan.yml)) runs on every `pull_request`, `push` to `main`, daily at `10:00` (`Asia/Jerusalem`, when the cluster VMs are typically awake during daytime work), and via manual `workflow_dispatch`:
+The workflow ([`.github/workflows/trivy-scan.yml`](../.github/workflows/trivy-scan.yml)) runs on every `pull_request`, `push` to `main`, daily at `08:17 UTC` (`10:17` IST / `11:17` IDT, when the cluster VMs are typically awake during daytime work), and via manual `workflow_dispatch`:
 
 1. **IaC & Kubernetes Manifest Scan (`trivy config`):**
    * Dynamically scans the entire repository (`.`, skipping `.git`, `.github`, `docs`, and `.terraform`) for `HIGH` and `CRITICAL` security misconfigurations across all OpenTofu modules and Kubernetes manifests — requiring zero workflow edits when new directories or workloads are added.
@@ -197,7 +197,7 @@ To stretch your $300 GCP Free Trial, the cluster VMs are automatically stopped o
 ### Nightly Auto-Shutdown & On-Demand Workflow
 
 1. **Nightly Shutdown & Manual Toggle ([`.github/workflows/manage-rke2-vms.yml`](../.github/workflows/manage-rke2-vms.yml)):**
-   * Runs every hour from **`23:00` to `06:00` (`Asia/Jerusalem`)** and stops any `RUNNING` `rke2-node-*` VMs automatically.
+   * Runs at `:17` past each hour across `20:00–04:59 UTC` (covering both `UTC+2` winter and `UTC+3` summer), while [`.github/scripts/manage-rke2-vms.sh`](../.github/scripts/manage-rke2-vms.sh) enforces the exact **`23:00–06:59` (`Asia/Jerusalem`)** window for `schedule` events so delayed triggers can never stop VMs during daytime hours.
    * Can also be triggered manually from **Actions → RKE2 VMs Power Management → Run workflow** with `action: stop` or `action: start`.
 2. **Auto-Start on Merge to `main` ([`.github/workflows/tofu-apply.yml`](../.github/workflows/tofu-apply.yml)):**
    * Whenever an infrastructure PR merges to `main`, `tofu-apply.yml` automatically starts any `TERMINATED` `rke2-node-*` VMs before running `tofu apply` and cluster bootstrap.

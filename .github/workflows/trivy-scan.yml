@@ -6,9 +6,9 @@ on:
     branches:
       - main
   schedule:
-    # Run daily at 10:00 Israel time (when cluster VMs are typically awake during daytime work)
-    - cron: "0 10 * * *"
-      timezone: "Asia/Jerusalem"
+    # Run daily at ~10:17 IST / ~11:17 IDT (08:17 UTC, when cluster VMs are awake during daytime work).
+    # Explicit UTC + off-minute avoids GitHub Actions :00 queue congestion and timezone scheduling drift.
+    - cron: "17 8 * * *"
   workflow_dispatch:
     inputs:
       fail_on_critical:
