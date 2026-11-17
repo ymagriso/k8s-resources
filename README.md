@@ -42,6 +42,17 @@ flowchart LR
 
 ---
 
+## Why Two Separate Repositories
+
+This setup splits application code ([`ymagriso/sample-nodejs`](https://github.com/ymagriso/sample-nodejs)) from cluster infrastructure and GitOps state (`ymagriso/k8s-resources`) for four reasons:
+
+- **Clear Ownership**: `sample-nodejs` holds application code, container builds, and the `devops-demo` Helm chart. `k8s-resources` holds OpenTofu stacks, cluster bootstrap scripts, and Argo CD manifests.
+- **Independent Triggers**: Application changes never trigger `tofu-apply.yml` or clutter infrastructure history. Cluster changes never run Node.js builds or image pushes.
+- **Least-Privilege Security**: `sample-nodejs` CI holds only OCI registry credentials and `K8S_RESOURCES_DEPLOY_KEY` to update [devops-demo.yaml](argocd/apps/devops-demo.yaml). It holds no GCP, Cloudflare, or cluster-admin access.
+- **Clean Release Handoff**: `sample-nodejs` pushes immutable OCI image and chart artifacts first, then bumps `targetRevision` and `image.tag` in [devops-demo.yaml](argocd/apps/devops-demo.yaml) for Argo CD.
+
+---
+
 ## Documentation Guides
 
 | # | Guide | Description |
