@@ -24,6 +24,8 @@ jobs:
     if: github.event.inputs.confirmation == 'DESTROY'
     env:
       TF_IN_AUTOMATION: "1"
+      GCP_STATE_PREFIX: "rke2-cluster"
+      STATE_BUCKET_SUFFIX: "tofu-state"
 
     steps:
       - name: Validate Confirmation
@@ -56,8 +58,8 @@ jobs:
           PROJECT_ID=$(gcloud config get-value project)
           cd tofu
           tofu init \
-            -backend-config="bucket=${PROJECT_ID}-tofu-state" \
-            -backend-config="prefix=rke2-cluster"
+            -backend-config="bucket=${PROJECT_ID}-${STATE_BUCKET_SUFFIX}" \
+            -backend-config="prefix=${GCP_STATE_PREFIX}"
 
       - name: OpenTofu Destroy
         run: |

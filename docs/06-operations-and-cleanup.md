@@ -200,7 +200,7 @@ To stretch your $300 GCP Free Trial, the cluster VMs are automatically stopped o
    * Runs at `:17` past each hour across `20:00–04:59 UTC` (covering both `UTC+2` winter and `UTC+3` summer), while [`.github/scripts/manage-rke2-vms.sh`](../.github/scripts/manage-rke2-vms.sh) enforces the exact **`23:00–06:59` (`Asia/Jerusalem`)** window for `schedule` events so delayed triggers can never stop VMs during daytime hours.
    * Can also be triggered manually from **Actions → RKE2 VMs Power Management → Run workflow** with `action: stop` or `action: start`.
 2. **Auto-Start on Merge to `main` ([`.github/workflows/tofu-apply.yml`](../.github/workflows/tofu-apply.yml)):**
-   * Whenever an infrastructure PR merges to `main`, `tofu-apply.yml` automatically starts any `TERMINATED` `rke2-node-*` VMs before running `tofu apply` and cluster bootstrap.
+   * Whenever an infrastructure PR merges to `main`, `tofu-apply.yml` automatically starts any `TERMINATED` cluster VMs (matched by `labels.cluster=rke2` and `labels.managed-by=opentofu`) before running `tofu apply` and cluster bootstrap.
 
 ### Stop the Instances via CLI
 
@@ -225,7 +225,7 @@ Once the VMs are running, re-open the IAP port-forwarding tunnel from [Guide 2: 
 Verify whether the nodes are `RUNNING` or `TERMINATED`:
 
 ```bash
-gcloud compute instances list --filter="name~'^rke2-node-'"
+gcloud compute instances list --filter="labels.cluster=rke2 AND labels.managed-by=opentofu"
 ```
 
 ---

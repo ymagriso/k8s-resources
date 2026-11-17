@@ -58,6 +58,10 @@ jobs:
     env:
       ACTION: ${{ github.event_name == 'pull_request' && 'plan' || github.event.inputs.action || 'apply' }}
       TF_IN_AUTOMATION: "1"
+      CLUSTER_LABEL: "rke2"
+      GCP_STATE_PREFIX: "rke2-cluster"
+      CLOUDFLARE_STATE_PREFIX: "cloudflare-tunnel"
+      STATE_BUCKET_SUFFIX: "tofu-state"
 
     steps:
       - name: Checkout Code
@@ -103,23 +107,30 @@ jobs:
         if: steps.changes.outputs.run_gcp == 'true' || steps.changes.outputs.run_cloudflare == 'true'
         run: |
           PROJECT_ID=$(gcloud config get-value project)
+          STATE_BUCKET="${PROJECT_ID}-${STATE_BUCKET_SUFFIX}"
+          GCP_REGION="${GCP_REGION:-$(python3 -c '
+          import re
+          text = open("tofu/variables.tf", encoding="utf-8").read()
+          m = re.search(r"variable\s+\"region\"\s*\{[^}]*default\s*=\s*\"([^\"]+)\"", text, re.S)
+          print(m.group(1) if m else "me-west1")
+          ')}"
+          echo "STATE_BUCKET=${STATE_BUCKET}" >> "$GITHUB_ENV"
+          echo "GCP_REGION=${GCP_REGION}" >> "$GITHUB_ENV"
 
-          if ! gcloud storage buckets describe "gs://${PROJECT_ID}-tofu-state" >/dev/null 2>&1; then
-            echo "Creating remote state bucket gs://${PROJECT_ID}-tofu-state..."
-            gcloud storage buckets create "gs://${PROJECT_ID}-tofu-state" --location=me-west1 --uniform-bucket-level-access
-            gcloud storage buckets update "gs://${PROJECT_ID}-tofu-state" --versioning
+          if ! gcloud storage buckets describe "gs://${STATE_BUCKET}" >/dev/null 2>&1; then
+            echo "Creating remote state bucket gs://${STATE_BUCKET} in ${GCP_REGION}..."
+            gcloud storage buckets create "gs://${STATE_BUCKET}" --location="${GCP_REGION}" --uniform-bucket-level-access
+            gcloud storage buckets update "gs://${STATE_BUCKET}" --versioning
           fi
 
       - name: OpenTofu Init & Format / Validate (GCP)
         if: steps.changes.outputs.run_gcp == 'true'
         run: |
-          PROJECT_ID=$(gcloud config get-value project)
-
           cd tofu
           tofu fmt -check
           tofu init \
-            -backend-config="bucket=${PROJECT_ID}-tofu-state" \
-            -backend-config="prefix=rke2-cluster"
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="prefix=${GCP_STATE_PREFIX}"
           tofu validate
 
       - name: OpenTofu Plan (GCP)
@@ -177,13 +188,11 @@ jobs:
       - name: OpenTofu Init & Format / Validate (Cloudflare)
         if: steps.changes.outputs.run_cloudflare == 'true'
         run: |
-          PROJECT_ID=$(gcloud config get-value project)
-
           cd tofu/cloudflare
           tofu fmt -check
           tofu init \
-            -backend-config="bucket=${PROJECT_ID}-tofu-state" \
-            -backend-config="prefix=cloudflare-tunnel"
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="prefix=${CLOUDFLARE_STATE_PREFIX}"
           tofu validate
 
       - name: Verify Cloudflare API Token Permissions

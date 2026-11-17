@@ -32,6 +32,7 @@ jobs:
     env:
       ACTION: ${{ github.event.inputs.action || 'stop' }}
       ENFORCE_SHUTDOWN_WINDOW: ${{ github.event_name == 'schedule' }}
+      CLUSTER_LABEL: "rke2"
 
     steps:
       - name: Checkout Code

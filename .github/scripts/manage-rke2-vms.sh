@@ -3,6 +3,31 @@
 
 set -euo pipefail
 
+CLUSTER_LABEL="${CLUSTER_LABEL:-rke2}"
+MANAGED_BY_LABEL="${MANAGED_BY_LABEL:-opentofu}"
+BASE_VM_FILTER="labels.cluster=${CLUSTER_LABEL} AND labels.managed-by=${MANAGED_BY_LABEL}"
+
+list_cluster_vms() {
+  local status_filter="$1"
+  local format="$2"
+  gcloud compute instances list \
+    --filter="${BASE_VM_FILTER} AND (${status_filter})" \
+    --format="$format"
+}
+
+run_power_action_by_zone() {
+  local action="$1"
+  local vm_csv="$2"
+  local zones zone zone_names
+
+  mapfile -t zones < <(printf '%s\n' "$vm_csv" | cut -d',' -f2 | sort -u)
+  for zone in "${zones[@]}"; do
+    mapfile -t zone_names < <(printf '%s\n' "$vm_csv" | awk -F',' -v z="$zone" '$2 == z {print $1}')
+    echo "Running '${action}' on RKE2 VMs in zone ${zone}: ${zone_names[*]}"
+    gcloud compute instances "$action" "${zone_names[@]}" --zone="$zone" --quiet
+  done
+}
+
 is_within_shutdown_window() {
   local hour_str="${1:-$(TZ=Asia/Jerusalem date +%H)}"
   local hour_num=$((10#$hour_str))
@@ -18,9 +43,7 @@ stop_rke2_vms() {
 
   local transitioning running
   for i in {1..24}; do
-    transitioning=$(gcloud compute instances list \
-      --filter="name~'^rke2-node-' AND (status=PROVISIONING OR status=STAGING)" \
-      --format="value(name)")
+    transitioning=$(list_cluster_vms "status=PROVISIONING OR status=STAGING" "value(name)")
     if [ -z "$transitioning" ]; then
       break
     fi
@@ -28,9 +51,7 @@ stop_rke2_vms() {
     sleep 5
   done
 
-  running=$(gcloud compute instances list \
-    --filter="name~'^rke2-node-' AND status=RUNNING" \
-    --format="csv[no-heading](name,zone.basename())")
+  running=$(list_cluster_vms "status=RUNNING" "csv[no-heading](name,zone.basename())")
 
   if [ -z "$running" ]; then
     echo "No running RKE2 VMs found. Nothing to do."
@@ -39,22 +60,13 @@ stop_rke2_vms() {
 
   echo "Found running RKE2 VMs:"
   echo "$running"
-
-  local zones zone zone_names
-  mapfile -t zones < <(printf '%s\n' "$running" | cut -d',' -f2 | sort -u)
-  for zone in "${zones[@]}"; do
-    mapfile -t zone_names < <(printf '%s\n' "$running" | awk -F',' -v z="$zone" '$2 == z {print $1}')
-    echo "Stopping RKE2 VMs in zone ${zone}: ${zone_names[*]}"
-    gcloud compute instances stop "${zone_names[@]}" --zone="$zone" --quiet
-  done
+  run_power_action_by_zone stop "$running"
 }
 
 start_rke2_vms() {
   local stopping stopped
   for i in {1..24}; do
-    stopping=$(gcloud compute instances list \
-      --filter="name~'^rke2-node-' AND status=STOPPING" \
-      --format="value(name)")
+    stopping=$(list_cluster_vms "status=STOPPING" "value(name)")
     if [ -z "$stopping" ]; then
       break
     fi
@@ -62,9 +74,7 @@ start_rke2_vms() {
     sleep 5
   done
 
-  stopped=$(gcloud compute instances list \
-    --filter="name~'^rke2-node-' AND (status=TERMINATED OR status=SUSPENDED)" \
-    --format="csv[no-heading](name,zone.basename())")
+  stopped=$(list_cluster_vms "status=TERMINATED OR status=SUSPENDED" "csv[no-heading](name,zone.basename())")
 
   if [ -z "$stopped" ]; then
     echo "All RKE2 VMs are already running."
@@ -73,14 +83,7 @@ start_rke2_vms() {
 
   echo "Found stopped RKE2 VMs:"
   echo "$stopped"
-
-  local zones zone zone_names
-  mapfile -t zones < <(printf '%s\n' "$stopped" | cut -d',' -f2 | sort -u)
-  for zone in "${zones[@]}"; do
-    mapfile -t zone_names < <(printf '%s\n' "$stopped" | awk -F',' -v z="$zone" '$2 == z {print $1}')
-    echo "Starting RKE2 VMs in zone ${zone}: ${zone_names[*]}"
-    gcloud compute instances start "${zone_names[@]}" --zone="$zone" --quiet
-  done
+  run_power_action_by_zone start "$stopped"
 }
 
 main() {
