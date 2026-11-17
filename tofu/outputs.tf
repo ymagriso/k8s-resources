@@ -1,3 +1,13 @@
+output "region" {
+  description = "The GCP region where cluster resources are deployed."
+  value       = var.region
+}
+
+output "zone" {
+  description = "The GCP zone where RKE2 node VMs are deployed."
+  value       = var.zone
+}
+
 output "vpc_name" {
   description = "The name of the dedicated Custom VPC."
   value       = google_compute_network.rke2_vpc.name

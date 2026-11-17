@@ -87,7 +87,7 @@ k8s-resources/
 │   ├── firewall.tf                                     # IAP ingress & intra-cluster firewall rules
 │   ├── compute.tf                                      # Dedicated Service Account & 3x private VMs
 │   ├── startup.sh.tftpl                                # Unified RKE2 + Cilium automated bootstrap script
-│   ├── outputs.tf                                      # Node IPs, helper IAP and kubeconfig commands
+│   ├── outputs.tf                                      # Region, zone, node IPs, helper IAP and kubeconfig commands
 │   └── cloudflare/                                     # Declarative Cloudflare Tunnel routes & DNS CNAME stack
 │       ├── routes.yaml                                 # Ordered list of tunnel ingress routes
 │       ├── main.tf                                     # Tunnel config & proxied CNAME records
