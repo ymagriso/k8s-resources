@@ -219,11 +219,19 @@ configure_glusterfs_storage() {
       if ! findmnt -n -o FSTYPE -M /shared 2>/dev/null | grep -q 'glusterfs'; then
         sudo systemctl daemon-reload && sudo mount /shared
       fi
+      sudo mkdir -p /etc/systemd/system/rke2-server.service.d
+      printf '[Unit]\nWants=shared.mount\nAfter=shared.mount\n' | sudo tee /etc/systemd/system/rke2-server.service.d/10-wait-shared-mount.conf >/dev/null
+      sudo systemctl daemon-reload
     "
   done
 
   gcloud compute ssh "${INIT_NODE}" --tunnel-through-iap --zone="${INIT_NODE_ZONE}" --command='
+    if ! findmnt -n -o FSTYPE -M /shared 2>/dev/null | grep -q "glusterfs"; then
+      echo "ERROR: /shared is not mounted as glusterfs on primary node." >&2
+      exit 1
+    fi
     sudo chmod 777 /shared
+    sudo touch /shared/.glusterfs-mounted && sudo chmod 644 /shared/.glusterfs-mounted
     sudo mkdir -p /shared/docker-registry && sudo chmod 777 /shared/docker-registry
     sudo mkdir -p /shared/monitoring/prometheus /shared/monitoring/grafana
     sudo chown 65532:65532 /shared/monitoring/prometheus

@@ -66,6 +66,9 @@ spec:
               mountPath: /var/log/grafana
             - name: tmp
               mountPath: /tmp
+            - name: glusterfs-mount-sentinel
+              mountPath: /tmp/.glusterfs-mounted
+              readOnly: true
             - name: grafana-datasources
               mountPath: /etc/grafana/provisioning/datasources/datasource.yaml
               subPath: datasource.yaml
@@ -100,7 +103,11 @@ spec:
         - name: grafana-storage
           hostPath:
             path: /shared/monitoring/grafana
-            type: DirectoryOrCreate
+            type: Directory
+        - name: glusterfs-mount-sentinel
+          hostPath:
+            path: /shared/.glusterfs-mounted
+            type: File
         - name: grafana-logs
           emptyDir: {}
         - name: tmp
