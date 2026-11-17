@@ -50,6 +50,11 @@ spec:
           volumeMounts:
             - name: shared-storage
               mountPath: /var/lib/registry
+            - name: tmp
+              mountPath: /tmp
+            - name: glusterfs-mount-sentinel
+              mountPath: /tmp/.glusterfs-mounted
+              readOnly: true
             - name: registry-cert
               mountPath: /certs
               readOnly: true
@@ -77,7 +82,13 @@ spec:
         - name: shared-storage
           hostPath:
             path: /shared/docker-registry
-            type: DirectoryOrCreate
+            type: Directory
+        - name: tmp
+          emptyDir: {}
+        - name: glusterfs-mount-sentinel
+          hostPath:
+            path: /shared/.glusterfs-mounted
+            type: File
         - name: registry-cert
           secret:
             secretName: docker-registry-tls

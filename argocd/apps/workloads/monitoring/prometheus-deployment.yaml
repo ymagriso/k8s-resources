@@ -52,6 +52,9 @@ spec:
               mountPath: /prometheus
             - name: tmp
               mountPath: /tmp
+            - name: glusterfs-mount-sentinel
+              mountPath: /tmp/.glusterfs-mounted
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /-/healthy
@@ -78,7 +81,11 @@ spec:
         - name: prometheus-storage
           hostPath:
             path: /shared/monitoring/prometheus
-            type: DirectoryOrCreate
+            type: Directory
+        - name: glusterfs-mount-sentinel
+          hostPath:
+            path: /shared/.glusterfs-mounted
+            type: File
         - name: tmp
           emptyDir: {}
 ---

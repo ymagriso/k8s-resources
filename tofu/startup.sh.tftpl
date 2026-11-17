@@ -92,6 +92,14 @@ fi
 
 BACKUP_VOLFILE_SERVERS="${join(":", all_node_ips)}"
 
+# Order rke2-server after /shared mounts on reboot so kubelet cannot create local folders under /shared
+mkdir -p /etc/systemd/system/rke2-server.service.d
+cat <<'EOF' > /etc/systemd/system/rke2-server.service.d/10-wait-shared-mount.conf
+[Unit]
+Wants=shared.mount
+After=shared.mount
+EOF
+
 %{ if is_init_node ~}
 echo "[INIT] Configuring primary RKE2 server node..."
 
@@ -129,6 +137,10 @@ if [ -b "$SHARED_DISK_DEV" ]; then
     mount /shared || true
   fi
   chmod 777 /shared
+  if findmnt -n -o FSTYPE -M /shared 2>/dev/null | grep -q 'glusterfs'; then
+    touch /shared/.glusterfs-mounted
+    chmod 644 /shared/.glusterfs-mounted
+  fi
   mkdir -p /shared/docker-registry
   chmod 777 /shared/docker-registry
   echo "[SHARED] 3-node replicated GlusterFS volume mounted at /shared!"
