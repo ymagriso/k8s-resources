@@ -70,93 +70,23 @@ This setup splits application code ([`ymagriso/sample-nodejs`](https://github.co
 
 ```text
 k8s-resources/
-├── README.md                                           # Overview, architecture & documentation index
-├── renovate.json                                       # Mend Renovate configuration (Helm, K8s, Docker & OpenTofu rules)
+├── README.md                                 # Overview, architecture, and guide index
+├── renovate.json                             # Mend Renovate configuration
 ├── .github/
-│   ├── scripts/
-│   │   ├── bootstrap-cluster.sh                        # RKE2 control-plane, GlusterFS, secrets, Helm & Argo CD bootstrap
-│   │   ├── detect_changed_stacks.py                    # Detects changed OpenTofu stacks (GCP / Cloudflare)
-│   │   ├── guard-node-replacement.sh                   # Blocks accidental RKE2 node VM deletion/replacement in OpenTofu plans
-│   │   ├── import-cloudflare-resources.sh              # Imports existing Cloudflare Tunnel config & DNS CNAMEs into state
-│   │   ├── manage-rke2-vms.sh                          # Starts or stops RKE2 cluster VMs in GCP
-│   │   ├── resolve_cloudflare_credentials.py           # Decodes & validates Cloudflare credentials and tunnel token
-│   │   ├── trivy_config_scan.py                        # Runs Trivy IaC/K8s config scan & writes Markdown summary
-│   │   ├── trivy_discover_images.py                    # Discovers container images across manifests, Kustomize, Helm & registry
-│   │   ├── trivy_image_scan.py                         # Scans discovered container images with Trivy & summarizes CVEs
-│   │   └── verify-cloudflare-token.sh                  # Verifies Cloudflare API token, Zone & Tunnel permissions
-│   └── workflows/
-│       ├── tofu-apply.yml                              # OpenTofu plan/apply (GCP + Cloudflare Tunnel), VM auto-start & cluster bootstrap
-│       ├── tofu-destroy.yml                            # OpenTofu safe teardown (requires "DESTROY" input)
-│       ├── manage-rke2-vms.yml                         # Scheduled nightly VM stop (23:00–06:00 Asia/Jerusalem) & on-demand start/stop
-│       └── trivy-scan.yml                              # Trivy container image (Manifests, Kustomize, Helm, Private Registry) & IaC scan
-├── tofu/                                               # Declarative GCP Infrastructure as Code
-│   ├── versions.tf                                     # OpenTofu & Google/Random provider constraints
-│   ├── providers.tf                                    # Provider configuration
-│   ├── variables.tf                                    # Parameterized GCP variables
-│   ├── terraform.tfvars.example                        # Example variables file
-│   ├── vpc.tf                                          # Custom VPC, subnet, Cloud Router & Cloud NAT
-│   ├── firewall.tf                                     # IAP ingress & intra-cluster firewall rules
-│   ├── compute.tf                                      # Dedicated Service Account & 3x private VMs
-│   ├── startup.sh.tftpl                                # Unified RKE2 + Cilium automated bootstrap script
-│   ├── outputs.tf                                      # Region, zone, node IPs, helper IAP and kubeconfig commands
-│   └── cloudflare/                                     # Declarative Cloudflare Tunnel routes & DNS CNAME stack
-│       ├── routes.yaml                                 # Ordered list of tunnel ingress routes
-│       ├── main.tf                                     # Tunnel config & proxied CNAME records
-│       ├── versions.tf                                 # OpenTofu & Cloudflare provider constraints
-│       ├── backend.tf                                  # GCS remote state backend (prefix: cloudflare-tunnel)
-│       ├── providers.tf                                # Cloudflare provider configuration
-│       ├── variables.tf                                # Account ID, Tunnel ID & private domain inputs
-│       ├── outputs.tf                                  # Sensitive zone & hostname outputs
-│       └── terraform.tfvars.example                    # Example variables file for local runs
-├── docs/                                               # Modular step-by-step guides
-│   ├── 01-architecture-and-costs.md
-│   ├── 02-gcp-rke2-cluster-setup.md
-│   ├── 03-cert-manager-letsencrypt.md
-│   ├── 04-argocd-cloudflare-oidc.md
-│   ├── 05-mongodb-replicaset-and-metrics.md
-│   └── 06-operations-and-cleanup.md
-├── cert-manager/
-│   ├── values.yaml                                     # Helm values for jetstack/cert-manager
-│   └── cluster-issuers.yaml                            # Let's Encrypt Staging & Prod ClusterIssuers (DNS-01)
-└── argocd/
-    ├── values.yaml                                     # Helm values for argo/argo-cd (Google OIDC enabled)
-    ├── certificate.yaml                                # Let's Encrypt Certificate for argocd-server-tls
-    ├── certificate-registry.yaml                       # Let's Encrypt Certificate for docker-registry-tls
-    ├── bootstrap/
-    │   └── root-app.yaml                               # Root App-of-Apps watching argocd/apps/
-    └── apps/
-        ├── argocd.yaml                                 # Argo CD self-management Application
-        ├── cert-manager.yaml                           # cert-manager GitOps Application
-        ├── cloudflared.yaml                            # Cloudflare Tunnel GitOps Application
-        ├── mongodb.yaml                                # MongoDB ReplicaSet Kustomize GitOps Application
-        ├── system-upgrade-controller.yaml              # Rancher System Upgrade Controller Application
-        ├── rke2-upgrade-plans.yaml                     # RKE2 automated upgrade Plans Application
-        ├── devops-demo.yaml                            # sample-nodejs OCI Helm GitOps Application
-        ├── docker-registry.yaml                        # Docker Registry GitOps Application
-        ├── monitoring.yaml                             # Prometheus + Grafana Monitoring GitOps Application
-        └── workloads/
-            ├── cloudflared/
-            │   ├── namespace.yaml
-            │   └── deployment.yaml
-            ├── docker-registry/
-            │   ├── namespace.yaml
-            │   ├── service.yaml                        # Exposes port 443 (HTTPS) & 5000
-            │   └── deployment.yaml                     # Native TLS (Let's Encrypt), htpasswd auth, storage on /shared/docker-registry
-            ├── mongodb/
-            │   ├── kustomization.yaml                  # Kustomize entrypoint for MongoDB ReplicaSet + Exporter
-            │   ├── namespace.yaml
-            │   ├── scripts-configmap.yaml              # ReplicaSet auto-init & root user bootstrap script
-            │   ├── services.yaml                       # Headless (27017) & metrics (9216) Services
-            │   └── statefulset.yaml                    # mongodb-community-server (8.0.x UBI9-slim) + percona/mongodb_exporter
-            ├── monitoring/
-            │   ├── namespace.yaml
-            │   ├── prometheus-rbac.yaml                # Read-only Kubernetes endpoint discovery RBAC
-            │   ├── prometheus-config.yaml              # Scrape configs for devops-demo & MongoDB ReplicaSet
-            │   ├── prometheus-deployment.yaml          # Prometheus (TSDB on /shared/monitoring/prometheus)
-            │   ├── grafana-provisioning.yaml           # Pre-provisioned Prometheus datasource & workload dashboards
-            │   └── grafana-deployment.yaml             # Grafana (state on /shared/monitoring/grafana, auth via grafana-admin Secret)
-            ├── system-upgrade-controller/
-            │   └── kustomization.yaml                  # Upstream pinned SUC manifests & CRDs
-            └── rke2-upgrade-plans/
-                └── plans.yaml                          # Server & Agent rolling upgrade Plan definitions
+│   ├── scripts/                              # Cluster bootstrap, OpenTofu guards, and Trivy helpers
+│   └── workflows/                            # OpenTofu, VM power, and Trivy CI workflows
+├── tofu/                                     # GCP OpenTofu infrastructure stack
+│   └── cloudflare/                           # Cloudflare Tunnel and DNS OpenTofu stack
+├── docs/                                     # Step-by-step architecture and operations guides
+├── cert-manager/                             # Helm values and Let's Encrypt ClusterIssuers
+└── argocd/                                   # Argo CD values and TLS certificates
+    ├── bootstrap/                            # Root App-of-Apps manifest
+    └── apps/                                 # Child Argo CD Application definitions
+        └── workloads/                        # Workload manifests and Kustomize bases
+            ├── cloudflared/                  # Cloudflare Tunnel daemon
+            ├── docker-registry/              # Private OCI and Docker Registry
+            ├── mongodb/                      # MongoDB ReplicaSet and metrics exporter
+            ├── monitoring/                   # Prometheus and Grafana dashboards
+            ├── system-upgrade-controller/    # Rancher System Upgrade Controller
+            └── rke2-upgrade-plans/           # RKE2 server and agent upgrade plans
 ```
