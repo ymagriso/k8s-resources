@@ -101,7 +101,7 @@ jobs:
         if: steps.changes.outputs.run_gcp == 'true' || steps.changes.outputs.run_cloudflare == 'true'
         uses: opentofu/setup-opentofu@v2.0.2
         with:
-          tofu_version: "1.13.9"
+          tofu_version: "v1.13.10"
 
       - name: Ensure Remote State Bucket
         if: steps.changes.outputs.run_gcp == 'true' || steps.changes.outputs.run_cloudflare == 'true'
